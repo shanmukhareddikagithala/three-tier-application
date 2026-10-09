@@ -1,0 +1,59 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    networks:
+      - auth-network
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - REDIS_URL=redis://redis:6379
+      - DB_PATH=/app/data/users.db
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_do_not_hardcode}
+      - VITE_API_URL=http://localhost:5173
+      - SMTP_HOST=${SMTP_HOST:-smtp.mailtrap.io}
+      - SMTP_PORT=${SMTP_PORT:-2525}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@yourdomain.com}
+    networks:
+      - auth-network
+    volumes:
+      - sqlite_data:/app/data
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - auth-network
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  auth-network:
+    driver: bridge
+
+volumes:
+  sqlite_data:
+  redis_data:
